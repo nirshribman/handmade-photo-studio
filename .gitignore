@@ -1,0 +1,22 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+.npm-cache/
+.browser/
+*.tsbuildinfo
+
+# Personal review inputs and locally generated exports
+/Sample/
+/reference/
+/artifacts/
+
+# Local credentials, agent configuration, and portable tools
+.env
+.env.*
+!.env.example
+/.codex/
+/.agents/
+/.tools/

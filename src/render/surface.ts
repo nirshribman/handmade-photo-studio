@@ -1,0 +1,4 @@
+export type Surface=OffscreenCanvas|HTMLCanvasElement;
+export function surface(width:number,height:number):Surface {if(typeof OffscreenCanvas!=='undefined')return new OffscreenCanvas(width,height);const c=document.createElement('canvas');c.width=width;c.height=height;return c;}
+export function context2d(c:Surface,readFrequently=false){const ctx=c.getContext('2d',{colorSpace:'srgb',willReadFrequently:readFrequently}) as OffscreenCanvasRenderingContext2D|CanvasRenderingContext2D|null;if(!ctx)throw new Error('A 2D drawing surface is unavailable.');return ctx;}
+export async function encodeCanvas(c:Surface,type:string,quality=.94):Promise<Blob>{const blob='convertToBlob' in c?await c.convertToBlob({type,quality}):await new Promise<Blob>((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('Image encoding failed.')),type,quality));if(!blob.size)throw new Error('Image encoder returned an empty file.');return blob;}

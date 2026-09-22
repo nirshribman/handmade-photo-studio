@@ -1,0 +1,131 @@
+import {test, expect} from '@playwright/test';
+import type {Page} from '@playwright/test';
+import fs from 'node:fs/promises';
+
+async function settings(page: Page) {
+  await page.getByRole('button', {name: 'Project options'}).click();
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', {name: 'Download settings', exact: true}).click();
+  const file = await (await pending).path();
+  return JSON.parse(await fs.readFile(file!, 'utf8'));
+}
+
+test('canvas wheel anchor, pan, actual pixels, region zoom, keyboard and unchanged recipe', async ({page}) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await expect(page.locator('.status-main')).toContainText('Refined preview');
+  const original = await settings(page);
+  const canvas = page.getByRole('img', {name: 'Rendered photograph and paper'});
+  const viewport = page.getByRole('group', {name: 'Canvas zoom and pan'});
+  const zoom = page.getByRole('combobox', {name: 'Canvas zoom', exact: true});
+  const initial = (await canvas.boundingBox())!;
+  const frame = (await viewport.boundingBox())!;
+  const anchor = {x: initial.x + initial.width * .7, y: initial.y + initial.height * .4};
+  await page.mouse.move(anchor.x, anchor.y);
+  await page.mouse.wheel(0, -160);
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(initial.width * 1.5);
+  const enlarged = (await canvas.boundingBox())!;
+  expect((anchor.x - enlarged.x) / enlarged.width).toBeCloseTo(.7, 3);
+  expect((anchor.y - enlarged.y) / enlarged.height).toBeCloseTo(.4, 3);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  const centre = {x: frame.x + frame.width / 2, y: frame.y + frame.height / 2};
+  await page.mouse.move(centre.x, centre.y);
+  await page.mouse.down();
+  await page.mouse.move(centre.x + 60, centre.y + 30, {steps: 5});
+  await page.mouse.up();
+  const panned = (await canvas.boundingBox())!;
+  expect(panned.x - enlarged.x).toBeCloseTo(60, 0);
+  expect(panned.y - enlarged.y).toBeCloseTo(30, 0);
+  await page.getByRole('button', {name: 'Fit artwork', exact: true}).click();
+  await expect(zoom).toHaveValue('fit');
+  const fitted = (await canvas.boundingBox())!;
+  expect(fitted.x).toBeCloseTo(initial.x, 0);
+  expect(fitted.width).toBeCloseTo(initial.width, 0);
+
+  await zoom.selectOption('100');
+  await expect(canvas).toHaveAttribute('data-quality', 'refined');
+  await expect.poll(async () => canvas.evaluate(node => Math.abs(node.getBoundingClientRect().width - (node as HTMLCanvasElement).width))).toBeLessThan(1.5);
+  await page.getByRole('button', {name: 'Toggle detail viewport'}).click();
+  await page.mouse.move(centre.x - 70, centre.y - 20);
+  await expect(page.locator('.detail-view')).toBeVisible();
+  await expect.poll(async () => canvas.evaluate(node => Math.abs(node.getBoundingClientRect().width - (node as HTMLCanvasElement).width))).toBeLessThan(1.5);
+  await page.screenshot({path: 'artifacts/canvas-actual-size.png'});
+  await page.getByRole('button', {name: 'Close detail', exact: true}).click();
+  await page.getByRole('button', {name: 'Fit artwork', exact: true}).click();
+
+  // Pick an off-centre patch and verify it is enlarged AND moved to the centre.
+  await page.getByRole('button', {name: 'Zoom area', exact: true}).click();
+  const start = {x: centre.x - 160, y: centre.y - 80};
+  const end = {x: centre.x - 40, y: centre.y + 20};
+  const selectedSource = {x: ((start.x + end.x) / 2 - initial.x) / initial.width, y: ((start.y + end.y) / 2 - initial.y) / initial.height};
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, {steps: 5});
+  await expect(page.getByLabel('Selected zoom area')).toBeVisible();
+  await page.screenshot({path: 'artifacts/canvas-area-selection.png'});
+  await page.mouse.up();
+  await expect(page.getByRole('button', {name: 'Zoom area', exact: true})).toHaveAttribute('aria-pressed', 'false');
+  const region = (await canvas.boundingBox())!;
+  expect(region.width).toBeGreaterThan(initial.width * 3);
+  expect((centre.x - region.x) / region.width).toBeCloseTo(selectedSource.x, 3);
+  expect((centre.y - region.y) / region.height).toBeCloseTo(selectedSource.y, 3);
+  await expect(canvas).toHaveAttribute('data-quality', 'refined');
+  await expect.poll(async () => canvas.evaluate(node => (node as HTMLCanvasElement).width)).toBeGreaterThanOrEqual(2400);
+  await page.screenshot({path: 'artifacts/canvas-area-zoomed.png'});
+
+  await viewport.focus();
+  await page.keyboard.press('0');
+  await expect(zoom).toHaveValue('fit');
+  await page.keyboard.press('+');
+  await expect(zoom).not.toHaveValue('fit');
+  await page.keyboard.press('1');
+  await expect(zoom).toHaveValue('100');
+  await page.keyboard.press('0');
+  await page.mouse.dblclick(centre.x, centre.y);
+  await expect(zoom).not.toHaveValue('fit');
+  await page.mouse.dblclick(centre.x, centre.y);
+  await expect(zoom).toHaveValue('fit');
+  await page.getByRole('button', {name: 'Zoom area', exact: true}).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', {name: 'Zoom area', exact: true})).toHaveAttribute('aria-pressed', 'false');
+  expect(await settings(page)).toEqual(original);
+  await expect(page.getByRole('button', {name: 'Undo', exact: true})).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+test('mobile pinch zoom, touch pan, reset and responsive controls', async ({browser}) => {
+  const context = await browser.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
+  const page = await context.newPage();
+  await page.goto('http://127.0.0.1:5173');
+  await expect(page.locator('.status-main')).toContainText('Refined preview');
+  const viewport = page.getByRole('group', {name: 'Canvas zoom and pan'});
+  const canvas = page.getByRole('img', {name: 'Rendered photograph and paper'});
+  const frame = (await viewport.boundingBox())!;
+  const initial = (await canvas.boundingBox())!;
+  const x = frame.x + frame.width / 2, y = frame.y + frame.height / 2;
+  const session = await context.newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: x - 35, y, id: 1}, {x: x + 35, y, id: 2}]});
+  await session.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: x - 70, y, id: 1}, {x: x + 70, y, id: 2}]});
+  await session.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(initial.width * 1.8);
+  const pinched = (await canvas.boundingBox())!;
+  await session.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y, id: 1}]});
+  await session.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: x + 30, y: y + 25, id: 1}]});
+  await session.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+  await expect.poll(async () => (await canvas.boundingBox())!.x - pinched.x).toBeGreaterThan(25);
+  await page.getByRole('button', {name: 'Fit artwork', exact: true}).tap();
+  await expect(page.getByRole('combobox', {name: 'Canvas zoom', exact: true})).toHaveValue('fit');
+  await expect(page.getByRole('button', {name: 'Zoom area', exact: true})).toBeInViewport();
+  await page.getByRole('button', {name: 'Zoom in', exact: true}).tap();
+  await expect.poll(async () => (await canvas.boundingBox())!.width / initial.width).toBeCloseTo(1.25, 2);
+  await page.getByRole('button', {name: 'Zoom area', exact: true}).tap();
+  await expect(page.getByRole('button', {name: 'Zoom area', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', {name: 'Zoom area', exact: true}).tap();
+  await expect(page.getByRole('button', {name: 'Zoom area', exact: true})).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', {name: 'Fit artwork', exact: true}).tap();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({path: 'artifacts/canvas-zoom-mobile.png'});
+  await context.close();
+});

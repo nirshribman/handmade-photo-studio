@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 5,
+  "rendererVersion": "0.5.0",
+  "source": {
+    "id": "source-1",
+    "displayName": "example-landscape.jpg",
+    "fingerprint": null
+  },
+  "finishStrength": 100,
+  "composition": {
+    "fit": "contain",
+    "crop": {
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    },
+    "aspect": "source",
+    "customAspect": {
+      "width": 3,
+      "height": 2
+    },
+    "borderPct": 0,
+    "shortSideMm": 150
+  },
+  "stage": {
+    "paddingPct": 8,
+    "background": "solid",
+    "colour": "#F3F0E9"
+  },
+  "output": {
+    "view": "object"
+  },
+  "layout": {
+    "mode": "single",
+    "stripCount": 3,
+    "direction": "horizontal",
+    "cutPositions": [
+      0.3333333333,
+      0.6666666667
+    ],
+    "rows": 4,
+    "columns": 4,
+    "gapPct": 1.5,
+    "tearAmount": 0,
+    "toneVariation": 0,
+    "scatter": 0,
+    "seed": 9017,
+    "photoMode": "continuous"
+  },
+  "tone": {
+    "enabled": true,
+    "strength": 100,
+    "seed": 1,
+    "exposureEv": 0,
+    "contrast": 0,
+    "shadows": 0,
+    "highlights": 0,
+    "blackLift": 0,
+    "warmth": 0,
+    "detailSoftness": 0
+  },
+  "film": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 2,
+    "profile": "none",
+    "profileVersion": "1",
+    "responseMix": 100,
+    "colourMix": 100,
+    "balance": 0,
+    "development": 0,
+    "halation": 0,
+    "halationRadius": 35,
+    "halationThreshold": 80,
+    "bloom": 0,
+    "bloomRadius": 55,
+    "bloomThreshold": 80
+  },
+  "bw": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 3,
+    "filter": "none",
+    "filterAmount": 100,
+    "mixer": {
+      "red": 0,
+      "yellow": 0,
+      "green": 0,
+      "cyan": 0,
+      "blue": 0,
+      "magenta": 0
+    },
+    "printContrast": 0,
+    "toner": "neutral",
+    "tonerAmount": 0
+  },
+  "grain": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 173,
+    "size": 35,
+    "clustering": 20,
+    "shadowBias": 0,
+    "chroma": 0,
+    "format": "35mm"
+  },
+  "ink": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 211,
+    "spread": 0,
+    "densityVariation": 0,
+    "coverageLoss": 0,
+    "gravureGrain": 0,
+    "paperCoupling": 50
+  },
+  "paper": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 317,
+    "profile": "soft-kozo",
+    "colour": "#FFFFFF",
+    "tooth": 0,
+    "mottling": 0,
+    "fibres": 0,
+    "fibreSize": 35,
+    "assetId": null,
+    "assetVersion": null,
+    "assetMix": 0,
+    "textureScale": 1,
+    "rotationDeg": 0,
+    "sheen": 0,
+    "roughness": 85,
+    "thicknessMm": 0.35
+  },
+  "edges": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 431,
+    "profile": "deckled",
+    "irregularity": 0,
+    "roughness": 0,
+    "featherWidth": 0,
+    "looseFibres": 0,
+    "outerFray": 100,
+    "innerFray": 100,
+    "exposedPaper": 0,
+    "fibreLength": 25,
+    "longFibres": 0,
+    "fibreClumping": 45
+  },
+  "wrinkles": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 557,
+    "scale": 50,
+    "density": 30,
+    "style": "creased",
+    "definition": 55
+  },
+  "lighting": {
+    "enabled": true,
+    "strength": 0,
+    "seed": 1,
+    "azimuthDeg": 315,
+    "relief": 0,
+    "shadowOpacity": 0,
+    "elevation": 0,
+    "altitudeDeg": 50,
+    "softness": 50
+  },
+  "pieces": {}
+}

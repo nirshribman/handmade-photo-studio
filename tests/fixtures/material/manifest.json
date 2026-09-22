@@ -1,0 +1,35 @@
+{
+  "id": "validation-procedural",
+  "version": "1",
+  "author": "Handmade Photo Studio",
+  "source": "Original synthetic validation fields",
+  "permission": "CC0-1.0",
+  "status": "procedural",
+  "sampleWidthMm": 150,
+  "sampleHeightMm": 150,
+  "width": 256,
+  "height": 256,
+  "tiling": "repeat",
+  "fibreDirectionDeg": 0,
+  "normalConvention": "OpenGL +Y",
+  "maps": {
+    "height": {
+      "file": "height.png",
+      "sha256": "2474445271379efce49359eb9b2d712f41fae557a7b9e8fd55929ba624d34201",
+      "colourSpace": "linear",
+      "status": "procedural"
+    },
+    "albedo": {
+      "file": "albedo.png",
+      "sha256": "376d730dd137362c25b45837fb8ce85f4b56ff25e5dac892142fa1a4b9909257",
+      "colourSpace": "srgb",
+      "status": "procedural"
+    },
+    "roughness": {
+      "file": "roughness.png",
+      "sha256": "c22b7610e41383b19651c3f055cb915c3250f84a308e2421ed405177d3ad5e5f",
+      "colourSpace": "linear",
+      "status": "procedural"
+    }
+  }
+}

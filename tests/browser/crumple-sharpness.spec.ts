@@ -1,0 +1,88 @@
+import {test, expect} from '@playwright/test';
+import fs from 'node:fs/promises';
+import sharp from 'sharp';
+
+test('irregular crumpling, relighting, controllable detail loss and actual exports', async ({page}) => {
+  await sharp({create:{width:1600,height:1600,channels:3,background:'#373632'}}).png().toFile('tests/fixtures/dark-paper.png');
+  const pattern=Buffer.alloc(1200*800*3);
+  for(let y=0;y<800;y++)for(let x=0;x<1200;x++){
+    const value=Math.round(128+55*Math.sin((x+y*.12)*Math.PI/4));
+    const i=(y*1200+x)*3;pattern[i]=pattern[i+1]=pattern[i+2]=value;
+  }
+  await sharp(pattern,{raw:{width:1200,height:800,channels:3}}).blur(.65).png().toFile('tests/fixtures/sharpness-target.png');
+  await page.goto('/');await expect(page.locator('.status-main')).toContainText('Refined preview');
+  await page.evaluate(async()=>{const url='/tests/browser/harness.ts';const m=await import(url);(window as any).h=new m.Harness();(window as any).difference=m.difference;});
+  const photoSource=await fs.access('Sample/DSC_5377.jpg').then(()=>'/Sample/DSC_5377.jpg',()=>'/samples/mountain-lake.jpg');
+  const data=await page.evaluate(async(photoSource)=>{
+    const h=(window as any).h,diff=(window as any).difference;
+    await h.source('/tests/fixtures/dark-paper.png');
+    const p=h.applyCrumpledPaper(h.neutral());p.composition.borderPct=0;p.stage.colour='#171715';p.stage.paddingPct=1;
+    p.paper.colour='#E4E0D5';p.edges.strength=75;p.edges.irregularity=45;p.edges.roughness=60;p.edges.looseFibres=50;
+    const base=h.render(p,1000,1000,'object').pixels;
+    const repeated=h.render(p,1000,1000,'object').pixels;
+    p.lighting.azimuthDeg+=180;const relit=h.render(p,1000,1000,'object').pixels;p.lighting.azimuthDeg-=180;
+    const flat=h.render(p,1000,1000,'flat').pixels;
+    const noFolds=h.clone(p);noFolds.wrinkles.strength=0;
+    const noDensity=h.clone(p);noDensity.wrinkles.density=0;
+    const flatNoFolds=h.render(noFolds,1000,1000,'flat').pixels;
+    const plain=h.render(noFolds,1000,1000,'object').pixels;
+    const densityZero=diff(plain,h.render(noDensity,1000,1000,'object').pixels);
+    const otherSeed=h.clone(p);otherSeed.wrinkles.seed+=1234;
+    const seeded=h.render(otherSeed,1000,1000,'object').pixels;
+    const dark=await h.output(p,1600,'object');
+    const bright=h.clone(p);bright.tone.exposureEv=3;const grey=await h.output(bright,1600,'object');
+    const recipe=h.clone(p);
+    await h.source('/tests/fixtures/sharpness-target.png');
+    const neutral=h.neutral(),baseline=h.render(neutral,1200,800).pixels;
+    const gradient=(pixels:Uint8ClampedArray)=>{let sum=0,count=0;for(let y=100;y<700;y++)for(let x=100;x<1100;x++){const i=(y*1200+x)*4;sum+=Math.abs(pixels[i+4]-pixels[i]);count++;}return sum/count;};
+    neutral.tone.detailSoftness=45;const medium=h.render(neutral,1200,800).pixels;
+    neutral.tone.detailSoftness=100;const soft=h.render(neutral,1200,800).pixels;
+    neutral.finishStrength=0;const zero=h.render(neutral,1200,800).pixels;
+    await h.source(photoSource);
+    const photo=h.applyCrumpledPaper(h.neutral());photo.wrinkles.strength=65;photo.bw.strength=100;
+    const photoFile=await h.output(photo,2200,'object');
+    return {dark,grey,photoFile,recipe,photoRecipe:photo,report:{repeat:diff(base,repeated),relight:diff(base,relit),effect:diff(base,plain),seed:diff(base,seeded),densityZero,flatInvariant:diff(flat,flatNoFolds),detail:{baseline:gradient(baseline),medium:gradient(medium),soft:gradient(soft)},zero:diff(baseline,zero)}};
+  },photoSource);
+  await fs.mkdir('artifacts/crumple',{recursive:true});
+  for(const [name,output] of [['dark-paper',data.dark],['grey-paper',data.grey],['sample-crumpled',data.photoFile]] as const)await fs.writeFile(`artifacts/crumple/${name}.png`,Buffer.from(output.base64,'base64'));
+  await fs.writeFile('artifacts/crumple/dark-paper-settings.json',JSON.stringify(data.recipe,null,2));
+  await fs.writeFile('artifacts/crumple/sample-crumpled-settings.json',JSON.stringify(data.photoRecipe,null,2));
+  await fs.writeFile('artifacts/crumple/validation.json',JSON.stringify(data.report,null,2));
+  expect(data.report.repeat.max).toBe(0);
+  expect(data.report.relight.mean).toBeGreaterThan(.5);
+  expect(data.report.effect.mean).toBeGreaterThan(.5);
+  expect(data.report.seed.mean).toBeGreaterThan(.5);
+  expect(data.report.flatInvariant.max).toBe(0);
+  expect(data.report.densityZero.max).toBe(0);
+  expect(data.report.detail.medium).toBeLessThan(data.report.detail.baseline);
+  expect(data.report.detail.soft).toBeLessThan(data.report.detail.medium);
+  expect(data.report.zero.max).toBe(0);
+});
+
+test('reference crumple and remove-softening controls are visible, undoable and saved', async ({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/');await expect(page.locator('.status-main')).toContainText('Refined preview');
+  await page.getByRole('button',{name:'Wrinkles',exact:true}).click();
+  await page.getByRole('button',{name:'Use reference crumple',exact:true}).click();
+  await expect(page.getByLabel('Wrinkle style',{exact:true})).toHaveValue('crumpled');
+  await expect(page.getByLabel('Crease definition value',{exact:true})).toHaveValue('76');
+  await page.getByRole('button',{name:'Undo',exact:true}).click();
+  await expect(page.getByLabel('Wrinkle style',{exact:true})).toHaveValue('creased');
+  await page.getByRole('button',{name:'Redo',exact:true}).click();
+  await page.getByRole('button',{name:'Ink & print',exact:true}).click();
+  await page.getByLabel('Ink softness value',{exact:true}).fill('60');await page.getByLabel('Ink softness value',{exact:true}).blur();
+  await page.getByRole('button',{name:'Basic tone',exact:true}).click();
+  await page.getByLabel('Image softness value',{exact:true}).fill('40');await page.getByLabel('Image softness value',{exact:true}).blur();
+  await page.getByRole('button',{name:'Remove softening',exact:true}).click();
+  await expect(page.getByLabel('Image softness value',{exact:true})).toHaveValue('0');
+  await expect(page.getByLabel('Ink softness value',{exact:true})).toHaveValue('0');
+  await page.getByRole('button',{name:'Project options'}).click();
+  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download settings',exact:true}).click();
+  const file=await (await pending).path(),recipe=JSON.parse(await fs.readFile(file!,'utf8'));
+  expect(recipe.schemaVersion).toBe(5);expect(recipe.tone.detailSoftness).toBe(0);expect(recipe.ink.spread).toBe(0);expect(recipe.wrinkles.style).toBe('crumpled');
+  expect(recipe.tone).not.toHaveProperty('sharpness');
+  const legacy={...recipe,schemaVersion:2,rendererVersion:'0.2.0'};delete legacy.wrinkles.style;delete legacy.wrinkles.definition;
+  await page.getByLabel('Choose settings file').setInputFiles({name:'legacy.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(legacy))});
+  await expect(page.getByRole('status')).toContainText('Migrated schema 2 to 3');
+  expect(errors).toEqual([]);
+});
