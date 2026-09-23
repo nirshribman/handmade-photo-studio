@@ -1,6 +1,6 @@
 import {useEffect, useId, useRef, useState} from 'react';
 import type {ButtonHTMLAttributes, PointerEvent as ReactPointerEvent, ReactNode, RefObject} from 'react';
-import {Maximize, Minus, Plus, ScanSearch} from 'lucide-react';
+import {Maximize, Minus, Plus, ScanSearch, Hand, MousePointer2} from 'lucide-react';
 
 type Point = {x: number; y: number};
 type Navigation = {zoom: number; pan: Point};
@@ -37,10 +37,12 @@ interface Props {
   onInspect: (x: number, y: number) => void;
   onResolutionChange: (needed: boolean) => void;
   children?: ReactNode;
+  artworkOverlay?: ReactNode;
+  onPick?: (x:number,y:number)=>void;
 }
 
 /** Navigation is local UI state: it never modifies the recipe or export framing. */
-export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, enabled, sweep, onSweep, onInspect, onResolutionChange, children}: Props) {
+export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, enabled, sweep, onSweep, onInspect, onResolutionChange, children, artworkOverlay, onPick}: Props) {
   const viewport = useRef<HTMLDivElement>(null);
   const mount = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({width: 1, height: 1});
@@ -50,6 +52,8 @@ export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, 
   const [selection, setSelection] = useState<Selection | null>(null);
   const selectionRef = useRef<Selection | null>(null);
   const pointers = useRef(new Map<number, Point>());
+  const [hand,setHand]=useState(false);
+  const tap=useRef<{id:number;start:Point;pan:boolean}|null>(null);
   const [moving, setMoving] = useState(false);
   const hintId = useId();
   const referenceWidth = aspect > 1 ? referenceLong : referenceLong * aspect;
@@ -127,7 +131,8 @@ export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, 
     event.currentTarget.setPointerCapture(event.pointerId);
     const point = local(event);
     pointers.current.set(event.pointerId, point);
-    if (pointers.current.size > 1) {selectionRef.current = null; setSelection(null); setAreaMode(false); setMoving(true); return;}
+    tap.current={id:event.pointerId,start:point,pan:!onPick||hand||event.altKey};
+    if (pointers.current.size > 1) {tap.current=null;selectionRef.current = null; setSelection(null); setAreaMode(false); setMoving(true); return;}
     if (sweep) {onSweep(point.x / size.width * 360); return;}
     if (areaMode) {
       const next = {start: point, end: point};
@@ -160,6 +165,7 @@ export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, 
       setSelection(next);
       return;
     }
+    if(tap.current&&!tap.current.pan)return;
     const old = current.current;
     update({...old, pan: {x: old.pan.x + point.x - previous.x, y: old.pan.y + point.y - previous.y}});
   }
@@ -167,6 +173,8 @@ export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, 
   function finishPointer(event: ReactPointerEvent<HTMLDivElement>, cancelled = false) {
     if (!pointers.current.has(event.pointerId)) return;
     const box = selectionRef.current;
+    const press=tap.current;tap.current=null;
+    if(!cancelled&&!box&&!sweep&&press&&press.id===event.pointerId&&!press.pan&&Math.hypot(local(event).x-press.start.x,local(event).y-press.start.y)<6){const rect=mount.current?.getBoundingClientRect();if(rect)onPick?.((event.clientX-rect.left)/rect.width,(event.clientY-rect.top)/rect.height);}
     pointers.current.delete(event.pointerId);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (!pointers.current.size) setMoving(false);
@@ -185,6 +193,7 @@ export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, 
   const selectValue = fitted ? 'fit' : String(percent);
   return <div className="canvas-navigation">
     <div className="canvas-zoom-bar" role="group" aria-label="Canvas navigation">
+      {onPick&&<><NavigationButton aria-label="Select pieces" aria-pressed={!hand} className={!hand?'selected':''} onClick={()=>setHand(false)}><MousePointer2 size={15}/></NavigationButton><NavigationButton aria-label="Pan canvas" aria-pressed={hand} className={hand?'selected':''} onClick={()=>setHand(true)}><Hand size={15}/></NavigationButton></>}
       <span className="zoom-label">ZOOM</span>
       <NavigationButton aria-label="Zoom out" title="Zoom out · −" disabled={!enabled} onClick={() => zoomAt(current.current.zoom / 1.25)}><Minus size={15}/></NavigationButton>
       <select aria-label="Canvas zoom" title="100% shows one default-export pixel per screen pixel" disabled={!enabled} value={selectValue} onChange={event => event.target.value === 'fit' ? fit() : zoomAt(Number(event.target.value) / 100 / fitScale)}>
@@ -197,7 +206,7 @@ export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, 
       <NavigationButton aria-label="Fit artwork" title="Fit and centre · 0" disabled={!enabled} onClick={fit}><Maximize size={14}/><span>Fit</span></NavigationButton>
       <NavigationButton aria-pressed={areaMode} className={areaMode ? 'selected' : ''} title="Draw a rectangle to enlarge that area" disabled={!enabled || sweep} onClick={() => {setAreaMode(value => !value); setSelection(null); selectionRef.current = null; viewport.current?.focus({preventScroll: true});}}><ScanSearch size={15}/><span>Zoom area</span></NavigationButton>
     </div>
-    <div className={`preview-space navigable ${areaMode ? 'selecting-area' : moving ? 'panning' : sweep ? 'sweeping' : ''}`} ref={viewport} role="group" aria-label="Canvas zoom and pan" aria-describedby={hintId} tabIndex={0}
+    <div className={`preview-space navigable ${onPick&&!hand?'piece-selection ':''}${areaMode ? 'selecting-area' : moving ? 'panning' : sweep ? 'sweeping' : ''}`} ref={viewport} role="group" aria-label="Canvas zoom and pan" aria-describedby={hintId} tabIndex={0}
       onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={event => finishPointer(event)} onPointerCancel={event => finishPointer(event, true)} onLostPointerCapture={event => finishPointer(event, true)}
       onDoubleClick={event => {if (!enabled || sweep || areaMode || (event.target as HTMLElement).closest('button, .detail-view')) return; const rect = event.currentTarget.getBoundingClientRect(); fitted ? zoomAt(Math.max(2, 1 / fitScale), {x: event.clientX - rect.left, y: event.clientY - rect.top}) : fit();}}
       onKeyDown={event => {
@@ -210,12 +219,12 @@ export function CanvasViewport({canvasRef, aspect, referenceLong, checkerboard, 
         if (event.key.startsWith('Arrow')) {event.preventDefault(); const old = current.current; update({...old, pan: {x: old.pan.x + (event.key === 'ArrowLeft' ? 40 : event.key === 'ArrowRight' ? -40 : 0), y: old.pan.y + (event.key === 'ArrowUp' ? 40 : event.key === 'ArrowDown' ? -40 : 0)}});}
       }}>
       <div ref={mount} className={`canvas-mount ${checkerboard ? 'checkerboard' : ''}`} data-zoom={percent} style={{width: baseWidth, height: baseHeight, transform: `translate(${navigation.pan.x}px, ${navigation.pan.y}px) scale(${navigation.zoom})`}}>
-        <canvas ref={canvasRef} aria-label="Rendered photograph and paper" role="img"/>
+        <canvas ref={canvasRef} aria-label="Rendered photograph and paper" role="img"/>{artworkOverlay}
       </div>
       {children}
       {selection && <div className="zoom-selection" aria-label="Selected zoom area" style={{left: Math.min(selection.start.x, selection.end.x), top: Math.min(selection.start.y, selection.end.y), width: Math.abs(selection.end.x - selection.start.x), height: Math.abs(selection.end.y - selection.start.y)}}/>}
       {areaMode && <div className="zoom-area-hint">Drag around the detail you want to enlarge. Esc to cancel.</div>}
     </div>
-    <div className="canvas-navigation-hint" id={hintId}>Scroll or pinch to zoom · Drag to pan · Double-click to zoom / fit</div>
+    <div className="canvas-navigation-hint" id={hintId}>{onPick?'Tap a piece to select · Hand tool to pan · Scroll to zoom':'Scroll or pinch to zoom · Drag to pan · Double-click to zoom / fit'}</div>
   </div>;
 }

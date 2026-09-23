@@ -62,7 +62,7 @@ test('irregular crumpling, relighting, controllable detail loss and actual expor
 test('reference crumple and remove-softening controls are visible, undoable and saved', async ({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('/');await expect(page.locator('.status-main')).toContainText('Refined preview');
-  await page.getByRole('button',{name:'Wrinkles',exact:true}).click();
+  await page.getByRole('tab',{name:/Paper$/}).click();await page.getByRole('button',{name:'Wrinkles',exact:true}).click();
   await page.getByRole('button',{name:'Use reference crumple',exact:true}).click();
   await expect(page.getByLabel('Wrinkle style',{exact:true})).toHaveValue('crumpled');
   await expect(page.getByLabel('Crease definition value',{exact:true})).toHaveValue('76');
@@ -71,11 +71,11 @@ test('reference crumple and remove-softening controls are visible, undoable and 
   await page.getByRole('button',{name:'Redo',exact:true}).click();
   await page.getByRole('button',{name:'Ink & print',exact:true}).click();
   await page.getByLabel('Ink softness value',{exact:true}).fill('60');await page.getByLabel('Ink softness value',{exact:true}).blur();
-  await page.getByRole('button',{name:'Basic tone',exact:true}).click();
+  await page.getByRole('tab',{name:/Photo$/}).click();
   await page.getByLabel('Image softness value',{exact:true}).fill('40');await page.getByLabel('Image softness value',{exact:true}).blur();
   await page.getByRole('button',{name:'Remove softening',exact:true}).click();
   await expect(page.getByLabel('Image softness value',{exact:true})).toHaveValue('0');
-  await expect(page.getByLabel('Ink softness value',{exact:true})).toHaveValue('0');
+  await page.getByRole('tab',{name:/Paper$/}).click();await expect(page.getByLabel('Ink softness value',{exact:true})).toHaveValue('0');
   await page.getByRole('button',{name:'Project options'}).click();
   const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download settings',exact:true}).click();
   const file=await (await pending).path(),recipe=JSON.parse(await fs.readFile(file!,'utf8'));

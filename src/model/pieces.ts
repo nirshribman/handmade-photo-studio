@@ -3,7 +3,7 @@ import type {Project} from './project';
 
 const cropSchema=z.object({x:z.number().min(0).max(1),y:z.number().min(0).max(1),width:z.number().gt(0).max(1),height:z.number().gt(0).max(1)}).strict().refine(c=>c.x+c.width<=1.000001&&c.y+c.height<=1.000001,'Crop must stay inside its photo.');
 export const pieceSchema=z.object({
- source:z.object({id:z.string().regex(/^[a-f0-9]{20}$/),name:z.string().max(512),width:z.number().int().positive().max(12000),height:z.number().int().positive().max(12000),fingerprint:z.string().regex(/^[a-f0-9]{64}$/)}).strict().refine(s=>s.width*s.height<=24000000&&s.id===s.fingerprint.slice(0,20),'Invalid photo identity or dimensions.').nullable(),
+ source:z.object({id:z.string().regex(/^[a-f0-9]{20}$/),name:z.string().max(512),width:z.number().int().positive(),height:z.number().int().positive(),fingerprint:z.string().regex(/^[a-f0-9]{64}$/)}).strict().refine(s=>Number.isSafeInteger(s.width*s.height)&&s.id===s.fingerprint.slice(0,20),'Invalid photo identity or dimensions.').nullable(),
  crop:cropSchema,fit:z.enum(['cover','contain']),rotationDeg:z.number().min(-45).max(45),offsetX:z.number().min(-20).max(20),offsetY:z.number().min(-20).max(20),exposureEv:z.number().min(-3).max(3),contrast:z.number().min(-50).max(50),warmth:z.number().min(-50).max(50),
 }).strict();
 export type PieceEdit=z.infer<typeof pieceSchema>;

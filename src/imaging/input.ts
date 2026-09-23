@@ -13,18 +13,23 @@ export function inspectHeader(b:Uint8Array):{width:number;height:number;type:str
   type='image/webp';for(let p=12;p+8<=b.length;){const tag=ascii(b,p,4),len=d.getUint32(p+4,true),q=p+8;if(q+len>b.length)throw new Error('Truncated WebP data.');if(tag==='ANIM'||tag==='ANMF')throw new Error('Animated WebP is not supported. Choose a static image.');if(tag==='VP8X'){if(b[q]&2)throw new Error('Animated WebP is not supported.');w=1+b[q+4]+(b[q+5]<<8)+(b[q+6]<<16);h=1+b[q+7]+(b[q+8]<<8)+(b[q+9]<<16);}if(tag==='VP8 '&&!w){w=d.getUint16(q+6,true)&16383;h=d.getUint16(q+8,true)&16383;}if(tag==='VP8L'&&!w){const bits=d.getUint32(q+1,true);w=(bits&16383)+1;h=((bits>>>14)&16383)+1;}p=q+len+(len%2);}
  }else throw new Error('Choose a JPEG, PNG or static WebP. GIF, SVG, HEIC, RAW and animated images are not supported.');
  if(!w||!h)throw new Error('Cannot read this image. The file may be corrupt.');
- if(w>12000||h>12000||w*h>24000000)throw new Error('Image too large. Use at most 24 megapixels and 12,000 pixels per side.');
+ if(!Number.isSafeInteger(w*h))throw new Error('Invalid image dimensions.');
  return {width:w,height:h,type};
 }
-export async function decodeSource(blob:Blob,name:string):Promise<DecodedSource>{
- if(blob.size>20*1024*1024)throw new Error('This image exceeds 20 MB. Choose a smaller image.');
+export async function decodeSource(blob:Blob,name:string,maxTextureSide?:number):Promise<DecodedSource>{
+ if(blob.size>512*1024*1024)throw new Error('This image exceeds the 512 MB file-size limit. Save a smaller encoded copy at the same pixel dimensions.');
  const bytes=new Uint8Array(await blob.arrayBuffer());const header=inspectHeader(bytes);
+ if(maxTextureSide&&Math.max(header.width,header.height)>maxTextureSide)throw new Error(`This graphics device supports photos up to ${maxTextureSide.toLocaleString()} pixels per side. This photo is ${header.width.toLocaleString()} x ${header.height.toLocaleString()}.`);
  let decoded:ImageBitmap;try{decoded=await createImageBitmap(new Blob([bytes],{type:header.type}),{imageOrientation:'from-image',premultiplyAlpha:'none',colorSpaceConversion:'default'});}catch{throw new Error('The image could not be decoded. Your current photograph is safe.');}
  // Browser decoder corrects EXIF exactly once. An explicit sRGB canvas normalises embedded profiles.
- const canvas=surface(decoded.width,decoded.height);const ctx=context2d(canvas,true);ctx.drawImage(decoded,0,0);decoded.close();
- const thumb=surface(48,48),tc=context2d(thumb,true);tc.drawImage(canvas,0,0,48,48);const data=tc.getImageData(0,0,48,48).data;let chroma=0,n=0;for(let i=0;i<data.length;i+=4){if(data[i+3]<128)continue;chroma+=Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2]);n++;}
- const bitmap=await createImageBitmap(canvas,{premultiplyAlpha:'none',colorSpaceConversion:'none'});
- const hash=await crypto.subtle.digest('SHA-256',bytes);const fingerprint=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
- return {blob,bitmap,info:{id:fingerprint.slice(0,20),name,width:bitmap.width,height:bitmap.height,type:header.type,fingerprint,achromatic:chroma/Math.max(1,n)<1.5}};
+ const canvas=surface(decoded.width,decoded.height),thumb=surface(48,48);let bitmap:ImageBitmap|null=null;
+ try{
+  const ctx=context2d(canvas,true);ctx.drawImage(decoded,0,0);decoded.close();
+  const tc=context2d(thumb,true);tc.drawImage(canvas,0,0,48,48);const data=tc.getImageData(0,0,48,48).data;let chroma=0,n=0;for(let i=0;i<data.length;i+=4){if(data[i+3]<128)continue;chroma+=Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2]);n++;}
+  bitmap=await createImageBitmap(canvas,{premultiplyAlpha:'none',colorSpaceConversion:'none'});
+  const hash=await crypto.subtle.digest('SHA-256',bytes);const fingerprint=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+  return {blob,bitmap,info:{id:fingerprint.slice(0,20),name,width:bitmap.width,height:bitmap.height,type:header.type,fingerprint,achromatic:chroma/Math.max(1,n)<1.5}};
+ }catch(error){bitmap?.close();throw new Error('Could not prepare this photo: '+(error as Error).message+' Your current photograph is retained.');}
+ finally{decoded.close();canvas.width=canvas.height=1;thumb.width=thumb.height=1;}
 }
 import {surface,context2d} from '../render/surface';

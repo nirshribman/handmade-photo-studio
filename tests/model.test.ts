@@ -8,6 +8,9 @@ import {noise} from '../src/imaging/random';
 import {History} from '../src/model/history';
 import {inspectHeader} from '../src/imaging/input';
 import fs from 'node:fs';
+import {emptyPiece} from '../src/model/pieces';
+import {validateExport,defaultExport,sourceResolution} from '../src/export/export-image';
+import type {Capability} from '../src/render/renderer';
 describe('Versioned recipes and independence',()=>{
  it('migrates schema 2 with crease defaults and preserves deliberate image softness',()=>{const p=initialProject() as any;p.schemaVersion=2;p.rendererVersion='0.2.0';delete p.wrinkles.style;delete p.wrinkles.definition;p.tone.detailSoftness=27;p.ink.spread=19;const restored=importRecipe(JSON.stringify(p));expect(restored.project.schemaVersion).toBe(6);expect(restored.project.wrinkles.style).toBe('creased');expect(restored.project.wrinkles.definition).toBe(55);expect(restored.project.tone.detailSoftness).toBe(27);expect(restored.project.ink.spread).toBe(19);expect(restored.notes.join(' ')).toContain('Migrated schema 2 to 3');expect(restored.project.tone).not.toHaveProperty('sharpness');const invalid=neutral();invalid.wrinkles.style='unknown';expect(()=>validateProject(invalid)).toThrow();invalid.wrinkles.style='crumpled';invalid.wrinkles.definition=101;expect(()=>validateProject(invalid)).toThrow();});
  it('crumpled material recipe keeps photo, film, tone and layout while enabling raking light',()=>{const p=loadFilm(initialProject(),'classic-400');p.composition.crop={x:.1,y:.1,width:.8,height:.8};p.tone.detailSoftness=17;const q=applyCrumpledPaper(p);validateProject(q);for(const key of ['source','film','tone','bw','grain','composition','layout','edges','stage'] as const)expect(q[key]).toEqual(p[key]);expect(q.wrinkles.style).toBe('crumpled');expect(q.wrinkles.seed).toBe(p.wrinkles.seed);expect(q.lighting.enabled).toBe(true);expect(q.lighting.relief).toBeGreaterThan(0);expect(q.ink.spread).toBe(0);});
@@ -28,7 +31,7 @@ describe('Continuous, deterministic layout',()=>{
 });
 describe('Input safety',()=>{
  it('sniffs supported signatures and rejects corrupt or unsupported input',()=>{expect(inspectHeader(new Uint8Array(fs.readFileSync('tests/fixtures/colour-chart.png')))).toMatchObject({width:600,height:400,type:'image/png'});expect(inspectHeader(new Uint8Array(fs.readFileSync('tests/fixtures/orientation-6.jpg')))).toMatchObject({width:120,height:80,type:'image/jpeg'});expect(()=>inspectHeader(new Uint8Array(fs.readFileSync('tests/fixtures/corrupt.png')))).toThrow();expect(()=>inspectHeader(new TextEncoder().encode('<svg/>'))).toThrow('JPEG');});
- it('rejects animation headers and oversized decoded dimensions',()=>{const b=new Uint8Array(fs.readFileSync('tests/fixtures/colour-chart.png')),d=new DataView(b.buffer);d.setUint32(16,12001);expect(()=>inspectHeader(b)).toThrow('large');const animated=new Uint8Array(53);animated.set([137,80,78,71,13,10,26,10]);const v=new DataView(animated.buffer);v.setUint32(8,13);animated.set(new TextEncoder().encode('IHDR'),12);v.setUint32(16,10);v.setUint32(20,10);v.setUint32(33,8);animated.set(new TextEncoder().encode('acTL'),37);expect(()=>inspectHeader(animated)).toThrow('Animated');});
+ it('accepts camera-size dimensions while rejecting invalid dimensions and animation',()=>{const b=new Uint8Array(fs.readFileSync('tests/fixtures/colour-chart.png')),d=new DataView(b.buffer);d.setUint32(16,9504);d.setUint32(20,6336);expect(inspectHeader(b)).toMatchObject({width:9504,height:6336});d.setUint32(16,14000);expect(inspectHeader(b).width).toBe(14000);d.setUint32(16,4294967295);d.setUint32(20,4294967295);expect(()=>inspectHeader(b)).toThrow('Invalid image dimensions');const animated=new Uint8Array(53);animated.set([137,80,78,71,13,10,26,10]);const v=new DataView(animated.buffer);v.setUint32(8,13);animated.set(new TextEncoder().encode('IHDR'),12);v.setUint32(16,10);v.setUint32(20,10);v.setUint32(33,8);animated.set(new TextEncoder().encode('acTL'),37);expect(()=>inspectHeader(animated)).toThrow('Animated');});
 });
 
 describe('Independent piece photos',()=>{
@@ -69,4 +72,9 @@ describe('Album backgrounds and rounded corners',()=>{
   p.edges.cornerScope='pieces';const all=buildGeometry(p,600,400);all.pieces.forEach(piece=>{expect(piece.cornerRadii.every(r=>r>0)).toBe(true);expect(piece.points.every(([x,y])=>Number.isFinite(x)&&Number.isFinite(y))).toBe(true);});
   p.finishStrength=0;expect(buildGeometry(p,600,400).pieces.every(piece=>piece.cornerRadii.every(r=>r===0))).toBe(true);
  });
+});
+
+describe('High-resolution originals and exports',()=>{
+ it('round-trips 60 MP piece metadata in saved settings without a schema migration',()=>{const p=initialProject();p.layout.mode='strips';p.layout.photoMode='individual';p.pieces['strips:horizontal:0:0']={...emptyPiece(),source:{id:'a'.repeat(20),fingerprint:'a'.repeat(64),name:'full-size.jpg',width:9504,height:6336}};expect(importRecipe(JSON.stringify(p)).project.pieces).toEqual(p.pieces);});
+ it('allows 60 MP native export and still rejects hardware dimensions and unintended enlargement',()=>{const p=neutral();p.output.view='image';const cap:Capability={webgl2:true,maxTexture:16384,maxRenderbuffer:16384,maxViewport:[32767,32767],maxSide:16384,maxPixels:16384**2,gpu:'test',adapter:'test'};const settings=defaultExport(p,9504,6336),native={...settings,...sourceResolution(p,settings,9504,6336)};expect(native.width).toBe(9504);expect(native.height).toBe(6336);expect(()=>validateExport(p,native,9504,6336,cap)).not.toThrow();expect(()=>validateExport(p,{...native,width:17000,height:11333,allowEnlargement:true},9504,6336,cap)).toThrow('graphics device');expect(()=>validateExport(p,{...native,width:10000,height:6667},9504,6336,cap)).toThrow('enlarges');});
 });

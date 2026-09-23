@@ -39,8 +39,8 @@ test('fibrous edges: independent scope, unchanged interior, deterministic export
 
 test('edge controls give live feedback, one-step preset undo, saved settings and real downloaded export',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');await expect(page.locator('.status-main')).toContainText('Refined preview');
- await page.getByRole('button',{name:'Paper edges',exact:true}).click();await expect(page.getByLabel('Inner join fraying value',{exact:true})).toBeDisabled();
- await page.getByRole('button',{name:'Strips layout',exact:true}).click();const before=await page.getByLabel('Edge character value',{exact:true}).inputValue();
+ await page.getByRole('tab',{name:/Paper$/}).click();await page.getByRole('button',{name:'Paper edges',exact:true}).click();await expect(page.getByLabel('Inner join fraying value',{exact:true})).toBeDisabled();
+ await page.getByRole('tab',{name:/Compose$/}).click();await page.getByRole('button',{name:'Strips layout',exact:true}).click();await page.getByRole('tab',{name:/Paper$/}).click();await page.locator('.effect-group').filter({has:page.getByRole('button',{name:'Paper edges',exact:true})}).locator('.advanced summary').click();const before=await page.getByLabel('Edge character value',{exact:true}).inputValue();
  await page.getByRole('button',{name:'Pulled fibres',exact:true}).click();await expect(page.getByLabel('Fibre length value',{exact:true})).toHaveValue('82');await expect(page.getByLabel('Inner join fraying value',{exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.getByLabel('Edge character value',{exact:true})).toHaveValue(before);await page.getByRole('button',{name:'Redo',exact:true}).click();await expect(page.getByLabel('Fibre length value',{exact:true})).toHaveValue('82');
  await expect(page.locator('.status-main')).toContainText('Refined preview');const canvas=page.getByLabel('Rendered photograph and paper',{exact:true}),revision=await canvas.getAttribute('data-render-revision');

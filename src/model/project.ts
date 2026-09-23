@@ -87,6 +87,11 @@ export function loadFilm(p:Project,id:string):Project {
  const f=filmById(id);if(!f)throw new Error('Unknown film profile.');const n=neutral();
  return {...p,film:{...n.film,seed:p.film.seed,enabled:true,strength:100,profile:id,profileVersion:f.version,balance:id==='tungsten-night'?-25:0,halation:f.halation,bloom:f.bloom},grain:{...n.grain,seed:p.grain.seed,enabled:true,strength:f.grain[0],size:f.grain[1],clustering:f.grain[2],chroma:f.grain[3]},bw:{...n.bw,seed:p.bw.seed,enabled:f.family==='bw',strength:f.family==='bw'?100:0}};
 }
+/** An explicit neutral starting point, separate from selecting no stock curve. */
+export function loadFilmLook(p:Project,id:string):Project {
+ if(id!=='none')return loadFilm(p,id);
+ return {...p,film:{...p.film,profile:'none',profileVersion:'1',enabled:false},grain:{...p.grain,enabled:false},bw:{...p.bw,enabled:false}};
+}
 export function loadMaterial(p:Project,id:string):Project {
  const m=materials.find(m=>m.id===id);if(!m)throw new Error('Unknown material.');const n=neutral();
  return {...p,paper:{...n.paper,seed:p.paper.seed,enabled:true,profile:id,strength:65,colour:m.colour,tooth:m.tooth,fibres:m.fibres,mottling:m.mottling,sheen:m.sheen,roughness:m.roughness,thicknessMm:m.thicknessMm},ink:{...n.ink,seed:p.ink.seed,enabled:true,strength:m.ink[0],spread:m.ink[1],densityVariation:m.ink[2]},wrinkles:id==='creased-kozo'?{...p.wrinkles,enabled:true,strength:35,scale:45,density:45}:p.wrinkles};
