@@ -1859,5 +1859,205 @@
     "fixture": "grey-sheet",
     "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
     "prerequisite": null
+  },
+  {
+    "key": "edges.cornerRadius",
+    "label": "Corner rounding",
+    "min": 0,
+    "max": 12,
+    "step": 0.1,
+    "neutral": 0,
+    "group": "edges",
+    "description": "Radius as a percentage of the sheet short side. Clamped to fit each section.",
+    "kind": "amplitude",
+    "finish": true,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "edges",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "edges.cornerVariation",
+    "label": "Uneven corners",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "neutral": 35,
+    "group": "edges",
+    "description": "Varies corner radii and their contours with the saved edge pattern.",
+    "kind": "structure",
+    "finish": true,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "edges",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "edges.rimWear",
+    "label": "Worn rim",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "neutral": 0,
+    "group": "edges",
+    "description": "Fine edge scuffs and a shallow worn lip. Object view follows the light; Flat keeps only wear.",
+    "kind": "amplitude",
+    "finish": true,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "edges",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "stage.texture",
+    "label": "Background texture",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "neutral": 55,
+    "group": "stage",
+    "description": "Fine paper fibres or linen weave in the album background.",
+    "kind": "amplitude",
+    "finish": false,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "stage",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "stage.aging",
+    "label": "Paper age",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "neutral": 0,
+    "group": "stage",
+    "description": "Uneven aged colour in the background support. Does not change the photograph.",
+    "kind": "amplitude",
+    "finish": false,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "stage",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "stage.stains",
+    "label": "Foxing and stains",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "neutral": 0,
+    "group": "stage",
+    "description": "Seeded brown specks and softly mottled patches on the background.",
+    "kind": "amplitude",
+    "finish": false,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "stage",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "stage.edgeShade",
+    "label": "Page edge aging",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "neutral": 0,
+    "group": "stage",
+    "description": "Irregular darkening towards the album page edges.",
+    "kind": "amplitude",
+    "finish": false,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "stage",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "stage.binding",
+    "label": "Binding crease",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "neutral": 0,
+    "group": "stage",
+    "description": "A shallow fold and binding shadow along the left edge of the album page.",
+    "kind": "amplitude",
+    "finish": false,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "stage",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "stage.textureScale",
+    "label": "Background texture scale",
+    "min": 0.5,
+    "max": 3,
+    "step": 0.05,
+    "neutral": 1,
+    "group": "stage",
+    "description": "Size of paper fibres, mottling and cloth weave in sheet coordinates.",
+    "kind": "structure",
+    "finish": false,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "stage",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
+  },
+  {
+    "key": "stage.mountSize",
+    "label": "Mount corner size",
+    "min": 2,
+    "max": 15,
+    "step": 0.5,
+    "neutral": 6,
+    "group": "stage",
+    "description": "Size of folded photo corner pockets as a percentage of each piece short side.",
+    "kind": "structure",
+    "finish": false,
+    "invalidates": [
+      "geometry",
+      "scene"
+    ],
+    "seedNamespace": "stage",
+    "fixture": "grey-sheet",
+    "conversion": "UI units; percentages divided by 100 in renderer; angles in radians; material units 1000 per sheet short side",
+    "prerequisite": null
   }
 ]

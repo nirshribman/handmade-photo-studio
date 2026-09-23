@@ -92,3 +92,23 @@ export function edgeFibres(ctx:Context,p:Project,piece:Piece,face:Surface,geo:Ge
  }
  ctx.restore();
 }
+
+// Narrow albedo scuffs remain in Flat view; the shallow worn lip follows the
+// existing light only in Object view. Neither operation resamples the photograph.
+export function wornRim(ctx:Context,p:Project,piece:Piece,view:string){
+ const e=p.edges,wear=effective(p,'edges')*e.rimWear/100;if(wear===0)return;
+ const light=view==='object'?effective(p,'lighting'):0,angle=p.lighting.azimuthDeg*Math.PI/180;
+ ctx.save();ctx.lineCap='round';
+ for(const boundary of piece.boundaries){
+  const inner=boundary.kind==='inner',scope=(inner?e.innerFray:e.outerFray)/100*(inner?p.layout.tearAmount/100:1);if(scope===0)continue;
+  const pts=boundary.points;
+  for(let i=0;i<pts.length-1;i++){
+   const [x,y]=pts[i],[ex,ey]=pts[i+1],a=pts[Math.max(0,i-2)],b=pts[Math.min(pts.length-1,i+3)],len=Math.hypot(b[0]-a[0],b[1]-a[1])||1,nx=(b[1]-a[1])/len,ny=-(b[0]-a[0])/len;
+   const n=noise(x/9,y/9,e.seed+1301),scuff=noise(x/1.7,y/1.7,e.seed+1319),shade=nx*Math.cos(angle)+ny*Math.sin(angle),inset=1.3+n*4.2;
+   ctx.strokeStyle='#29251f';ctx.globalAlpha=wear*scope*(.035+Math.max(0,-shade)*light*.14)*(.2+n*.8);ctx.lineWidth=.55+n*.8;ctx.beginPath();ctx.moveTo(x-nx*inset,y-ny*inset);ctx.lineTo(ex-nx*inset,ey-ny*inset);ctx.stroke();
+   ctx.strokeStyle=p.paper.colour;ctx.globalAlpha=wear*scope*(.02+Math.max(0,shade)*light*.2)*(.1+scuff*.9);ctx.lineWidth=.25+scuff*.55;ctx.beginPath();ctx.moveTo(x-nx*.75,y-ny*.75);ctx.lineTo(ex-nx*.75,ey-ny*.75);ctx.stroke();
+   if(scuff>.64){ctx.globalAlpha=wear*scope*(scuff-.64)*.7;ctx.lineWidth=.23;ctx.beginPath();ctx.moveTo(x-nx*(inset+1),y-ny*(inset+1));ctx.lineTo(ex-nx*(inset+2),ey-ny*(inset+2));ctx.stroke();}
+  }
+ }
+ ctx.restore();
+}

@@ -1,5 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {neutral,initialProject,loadFilm,loadMaterial,applyCrumpledPaper,importRecipe,validateProject,presets,applyPreset,controls} from '../src/model/project';
+import {backgroundStyles,applyBackground,stageDefaults} from '../src/model/backgrounds';
+import {edgeStyles,applyEdgeStyle,cornerDefaults} from '../src/model/edge-styles';
 import {films,materials} from '../src/model/profiles';
 import {buildGeometry,partitionAxes} from '../src/layout/geometry';
 import {noise} from '../src/imaging/random';
@@ -7,12 +9,12 @@ import {History} from '../src/model/history';
 import {inspectHeader} from '../src/imaging/input';
 import fs from 'node:fs';
 describe('Versioned recipes and independence',()=>{
- it('migrates schema 2 with crease defaults and preserves deliberate image softness',()=>{const p=initialProject() as any;p.schemaVersion=2;p.rendererVersion='0.2.0';delete p.wrinkles.style;delete p.wrinkles.definition;p.tone.detailSoftness=27;p.ink.spread=19;const restored=importRecipe(JSON.stringify(p));expect(restored.project.schemaVersion).toBe(5);expect(restored.project.wrinkles.style).toBe('creased');expect(restored.project.wrinkles.definition).toBe(55);expect(restored.project.tone.detailSoftness).toBe(27);expect(restored.project.ink.spread).toBe(19);expect(restored.notes.join(' ')).toContain('Migrated schema 2 to 3');expect(restored.project.tone).not.toHaveProperty('sharpness');const invalid=neutral();invalid.wrinkles.style='unknown';expect(()=>validateProject(invalid)).toThrow();invalid.wrinkles.style='crumpled';invalid.wrinkles.definition=101;expect(()=>validateProject(invalid)).toThrow();});
+ it('migrates schema 2 with crease defaults and preserves deliberate image softness',()=>{const p=initialProject() as any;p.schemaVersion=2;p.rendererVersion='0.2.0';delete p.wrinkles.style;delete p.wrinkles.definition;p.tone.detailSoftness=27;p.ink.spread=19;const restored=importRecipe(JSON.stringify(p));expect(restored.project.schemaVersion).toBe(6);expect(restored.project.wrinkles.style).toBe('creased');expect(restored.project.wrinkles.definition).toBe(55);expect(restored.project.tone.detailSoftness).toBe(27);expect(restored.project.ink.spread).toBe(19);expect(restored.notes.join(' ')).toContain('Migrated schema 2 to 3');expect(restored.project.tone).not.toHaveProperty('sharpness');const invalid=neutral();invalid.wrinkles.style='unknown';expect(()=>validateProject(invalid)).toThrow();invalid.wrinkles.style='crumpled';invalid.wrinkles.definition=101;expect(()=>validateProject(invalid)).toThrow();});
  it('crumpled material recipe keeps photo, film, tone and layout while enabling raking light',()=>{const p=loadFilm(initialProject(),'classic-400');p.composition.crop={x:.1,y:.1,width:.8,height:.8};p.tone.detailSoftness=17;const q=applyCrumpledPaper(p);validateProject(q);for(const key of ['source','film','tone','bw','grain','composition','layout','edges','stage'] as const)expect(q[key]).toEqual(p[key]);expect(q.wrinkles.style).toBe('crumpled');expect(q.wrinkles.seed).toBe(p.wrinkles.seed);expect(q.lighting.enabled).toBe(true);expect(q.lighting.relief).toBeGreaterThan(0);expect(q.ink.spread).toBe(0);});
  it('validates every preset, film, and material recipe',()=>{expect(presets).toHaveLength(6);expect(films).toHaveLength(14);expect(materials).toHaveLength(7);presets.forEach(validateProject);films.forEach(f=>validateProject(loadFilm(neutral(),f.id)));materials.forEach(m=>validateProject(loadMaterial(neutral(),m.id)));expect(new Set(films.map(f=>f.hash)).size).toBe(14);});
  it('film selection preserves composition, tone, paper and all independent seeds',()=>{const p=initialProject();p.composition.crop={x:.1,y:.2,width:.8,height:.6};const f=loadFilm(p,'tungsten-night');for(const k of ['composition','paper','layout','tone','edges','lighting'] as const)expect(f[k]).toEqual(p[k]);expect(f.grain.seed).toBe(p.grain.seed);expect(f.bw.strength).toBe(0);const none=loadFilm(f,'none');expect(none.grain).toEqual(f.grain);expect(none.film.halation).toBe(30);});
  it('material preserves film, crop, edges, lighting and latent wrinkles',()=>{const p=loadFilm(initialProject(),'classic-400');p.wrinkles.strength=23;const q=loadMaterial(p,'baryta');expect(q.film).toEqual(p.film);expect(q.edges).toEqual(p.edges);expect(q.wrinkles).toEqual(p.wrinkles);expect(q.ink.coverageLoss).toBe(0);expect(loadMaterial(q,'creased-kozo').wrinkles.strength).toBe(35);});
- it('migrates schema 1 monochrome once and rejects newer/invalid settings',()=>{const p=neutral() as unknown as Record<string,unknown>;p.schemaVersion=1;delete p.film;delete p.bw;(p.tone as Record<string,unknown>).monochrome=80;(p.tone as Record<string,unknown>).strength=50;const result=importRecipe(JSON.stringify(p));expect(result.project.bw.strength).toBe(40);expect(result.notes[0]).toContain('Migrated');expect('monochrome' in result.project.tone).toBe(false);expect(()=>importRecipe('{"schemaVersion":6}')).toThrow('Unsupported');expect(()=>importRecipe('x'.repeat(270000))).toThrow('256 KB');const bad=neutral();bad.grain.strength=101;expect(()=>validateProject(bad)).toThrow();const extra={...neutral(),externalURL:'https://example.com'};expect(()=>validateProject(extra)).toThrow();});
+ it('migrates schema 1 monochrome once and rejects newer/invalid settings',()=>{const p=neutral() as unknown as Record<string,unknown>;p.schemaVersion=1;delete p.film;delete p.bw;(p.tone as Record<string,unknown>).monochrome=80;(p.tone as Record<string,unknown>).strength=50;const result=importRecipe(JSON.stringify(p));expect(result.project.bw.strength).toBe(40);expect(result.notes[0]).toContain('Migrated');expect('monochrome' in result.project.tone).toBe(false);expect(()=>importRecipe('{"schemaVersion":7}')).toThrow('Unsupported');expect(()=>importRecipe('x'.repeat(270000))).toThrow('256 KB');const bad=neutral();bad.grain.strength=101;expect(()=>validateProject(bad)).toThrow();const extra={...neutral(),externalURL:'https://example.com'};expect(()=>validateProject(extra)).toThrow();});
  it('preserves requested layout when applying presets without layout',()=>{const p=neutral();p.layout.mode='grid';p.composition.borderPct=11;p.composition.crop.width=.7;const q=applyPreset(p,2,false);expect(q.composition).toEqual(p.composition);expect(q.layout).toEqual(p.layout);});
  it('one drag is one undo action with a bounded history',()=>{const h=new History(),p=neutral(),q=structuredClone(p);h.begin(p);q.paper.strength=75;h.commit(p,q);expect(h.past).toHaveLength(1);expect(h.undo(q)).toEqual(p);expect(h.redo(p)).toEqual(q);for(let i=0;i<110;i++){const n=structuredClone(q);n.grain.seed=i;h.commit(q,n);}expect(h.past).toHaveLength(100);});
  it('has complete numerical-control audit fields',()=>{expect(controls.length).toBeGreaterThan(75);controls.forEach(c=>{expect(c.min).toBeLessThan(c.max);expect(c.invalidates.length).toBeGreaterThan(0);expect(c.fixture).toBeTruthy();expect(c.conversion).toBeTruthy();});});
@@ -30,7 +32,7 @@ describe('Input safety',()=>{
 });
 
 describe('Independent piece photos',()=>{
- it('migrates existing schema 3 projects without changing their layout',()=>{const p:any=initialProject();p.schemaVersion=3;delete p.pieces;delete p.layout.photoMode;const q=importRecipe(JSON.stringify(p));expect(q.project.layout.photoMode).toBe('continuous');expect(q.project.pieces).toEqual({});expect(q.project.schemaVersion).toBe(5);});
+ it('migrates existing schema 3 projects without changing their layout',()=>{const p:any=initialProject();p.schemaVersion=3;delete p.pieces;delete p.layout.photoMode;const q=importRecipe(JSON.stringify(p));expect(q.project.layout.photoMode).toBe('continuous');expect(q.project.pieces).toEqual({});expect(q.project.schemaVersion).toBe(6);});
  it('validates piece crops and keeps moved, rotated corners inside the output frame',()=>{const p=neutral();p.layout.mode='strips';p.pieces={'strips:horizontal:0:0':{source:null,crop:{x:0,y:0,width:1,height:1},fit:'cover',rotationDeg:45,offsetX:-20,offsetY:-20,exposureEv:0,contrast:0,warmth:0}};validateProject(p);const g=buildGeometry(p,600,400);for(const piece of g.pieces){const c=Math.cos(piece.angle),s=Math.sin(piece.angle);for(const x of [-piece.width/2,piece.width/2])for(const y of [-piece.height/2,piece.height/2]){const px=g.originX+piece.x+piece.dx+piece.width/2+x*c-y*s,py=g.originY+piece.y+piece.dy+piece.height/2+x*s+y*c;expect(px).toBeGreaterThanOrEqual(g.margin-.001);expect(py).toBeGreaterThanOrEqual(g.margin-.001);expect(px).toBeLessThanOrEqual(g.stageWidth-g.margin+.001);expect(py).toBeLessThanOrEqual(g.stageHeight-g.margin+.001);}}p.pieces['strips:horizontal:0:0'].crop.x=.5;expect(()=>validateProject(p)).toThrow('Crop');});
 });
 
@@ -39,7 +41,7 @@ describe('Fibrous edge recipes',()=>{
  it('migrates schema 4, validates new controls and preserves detail settings',()=>{
   const p:any=initialProject();p.schemaVersion=4;p.rendererVersion='0.4.0';
   for(const key of ['outerFray','innerFray','exposedPaper','fibreLength','longFibres','fibreClumping'])delete p.edges[key];
-  const q=importRecipe(JSON.stringify(p));expect(q.project.schemaVersion).toBe(5);expect(q.project.edges.exposedPaper).toBe(0);expect(q.project.edges.longFibres).toBe(0);expect(q.project.tone).toEqual(p.tone);expect(q.project.layout).toEqual(p.layout);expect(q.notes.join(' ')).toContain('Migrated schema 4 to 5');
+  const q=importRecipe(JSON.stringify(p));expect(q.project.schemaVersion).toBe(6);expect(q.project.edges.exposedPaper).toBe(0);expect(q.project.edges.longFibres).toBe(0);expect(q.project.tone).toEqual(p.tone);expect(q.project.layout).toEqual(p.layout);expect(q.notes.join(' ')).toContain('Migrated schema 4 to 5');
   q.project.edges.fibreLength=101;expect(()=>validateProject(q.project)).toThrow('fibreLength');
  });
  it('identifies shared cuts exactly and keeps framing fixed as fibres change',()=>{
@@ -48,5 +50,23 @@ describe('Fibrous edge recipes',()=>{
   expect(a.boundaries[1].kind).toBe('inner');expect(a.boundaries[1].points).toEqual([...b.boundaries[3].points].reverse());expect(a.boundaries[2].points).toEqual([...c.boundaries[0].points].reverse());expect(a.boundaries[0].kind).toBe('outer');
   p.edges.fibreLength=100;p.edges.longFibres=100;p.edges.outerFray=0;p.edges.innerFray=0;
   expect(buildGeometry(p,600,400)).toEqual(g);
+ });
+});
+
+describe('Album backgrounds and rounded corners',()=>{
+ it('migrates schema 5 to plain backgrounds and square corners without changing existing settings',()=>{
+  const p:any=initialProject();p.schemaVersion=5;p.rendererVersion='0.5.0';for(const k of Object.keys(stageDefaults))delete p.stage[k];for(const k of Object.keys(cornerDefaults))delete p.edges[k];const q=importRecipe(JSON.stringify(p));expect(q.project.schemaVersion).toBe(6);expect(q.project.stage.material).toBe('plain');expect(q.project.stage.colour).toBe(p.stage.colour);expect(q.project.edges.cornerRadius).toBe(0);expect(q.project.tone).toEqual(p.tone);expect(q.project.pieces).toEqual(p.pieces);
+  q.project.stage.material='unknown';expect(()=>validateProject(q.project)).toThrow('stage.material');
+ });
+ it('validates background and edge recipes while preserving source, tone and layout',()=>{
+  const p=initialProject();for(const s of backgroundStyles){const q=applyBackground(p,s.id);validateProject(q);expect(q.tone).toEqual(p.tone);expect(q.composition).toEqual(p.composition);expect(q.edges).toEqual(p.edges);expect(q.pieces).toEqual(p.pieces);}for(const s of edgeStyles)validateProject(applyEdgeStyle(p,s.id));
+ });
+ it('rounds true outside corners while shared cuts remain identical; each-piece mode is explicit',()=>{
+  const p=applyEdgeStyle(initialProject(),'rounded');p.layout.mode='grid';p.layout.rows=2;p.layout.columns=2;p.layout.tearAmount=80;
+  const g=buildGeometry(p,600,400);for(const piece of g.pieces)expect(piece.cornerRadii.filter(r=>r>0)).toHaveLength(1);
+  const original=structuredClone(p);original.edges.cornerRadius=0;const square=buildGeometry(original,600,400);
+  g.pieces.forEach((piece,i)=>expect(piece.boundaries.filter(b=>b.kind==='inner')).toEqual(square.pieces[i].boundaries.filter(b=>b.kind==='inner')));
+  p.edges.cornerScope='pieces';const all=buildGeometry(p,600,400);all.pieces.forEach(piece=>{expect(piece.cornerRadii.every(r=>r>0)).toBe(true);expect(piece.points.every(([x,y])=>Number.isFinite(x)&&Number.isFinite(y))).toBe(true);});
+  p.finishStrength=0;expect(buildGeometry(p,600,400).pieces.every(piece=>piece.cornerRadii.every(r=>r===0))).toBe(true);
  });
 });

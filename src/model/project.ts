@@ -3,10 +3,11 @@ import defaults from './neutral.json';
 import quiet from './quiet.json';
 import controlData from './control-data.json';
 import { films, filmById, materials, contentHash } from './profiles';
-import {edgeDefaults} from './edge-styles';
+import {stageDefaults,backgroundStyles} from './backgrounds';
+import {edgeDefaults,cornerDefaults} from './edge-styles';
 import {piecesSchema} from './pieces';
 import type {PieceEdit} from './pieces';
-export const RENDERER_VERSION='0.5.0';
+export const RENDERER_VERSION='0.6.0';
 export type Project=Omit<typeof defaults,'source'|'paper'|'pieces'>&{pieces:Record<string,PieceEdit>;source:Omit<typeof defaults.source,'fingerprint'>&{fingerprint:string|null};paper:Omit<typeof defaults.paper,'assetId'|'assetVersion'>&{assetId:string|null;assetVersion:string|null}};
 export type Group='tone'|'film'|'bw'|'grain'|'ink'|'paper'|'edges'|'wrinkles'|'lighting';
 export type View='object'|'flat'|'image';
@@ -20,13 +21,13 @@ export function getValue(p:Project,path:string):unknown { return path.split('.')
 export function setValue(p:Project,path:string,value:unknown) {const next=clone(p);const parts=path.split('.');let o=next as unknown as Record<string,unknown>;for(const key of parts.slice(0,-1))o=o[key] as Record<string,unknown>;o[parts.at(-1)!]=value;return next;}
 const enums:Record<string,string[]>={
  'composition.fit':['contain','cover'],'composition.aspect':['source','1:1','3:2','2:3','4:5','custom'],
- 'stage.background':['transparent','solid'],'output.view':['object','flat','image'],'layout.mode':['single','strips','grid'],'layout.direction':['horizontal','vertical'],'layout.photoMode':['continuous','individual'],
+ 'stage.background':['transparent','solid'],'stage.material':backgroundStyles.map(s=>s.id),'stage.mounts':['none','black','ivory','kraft'],'edges.cornerScope':['sheet','pieces'],'output.view':['object','flat','image'],'layout.mode':['single','strips','grid'],'layout.direction':['horizontal','vertical'],'layout.photoMode':['continuous','individual'],
  'film.profile':['none',...films.map(f=>f.id)],'film.profileVersion':['1'],'bw.filter':['none','yellow','orange','red','green','blue'],
  'bw.toner':['neutral','sepia','cool','selenium'],'grain.format':['35mm','medium','large'],'paper.profile':materials.map(m=>m.id),'edges.profile':['deckled','torn','clean'],'wrinkles.style':['creased','crumpled'],
 };
 const extraRanges:Record<string,[number,number]>={'finishStrength':[0,100],'composition.borderPct':[0,15],'composition.shortSideMm':[50,600],'stage.paddingPct':[0,30],'composition.customAspect.width':[.01,100],'composition.customAspect.height':[.01,100]};
 function buildSchema(v:unknown,path=''):z.ZodType {
- if(path==='schemaVersion')return z.literal(5);
+ if(path==='schemaVersion')return z.literal(6);
  if(path==='pieces')return piecesSchema;
  if(path==='layout.cutPositions')return z.array(z.number().gt(0).lt(1)).max(4);
  if(path.endsWith('assetId')||path.endsWith('assetVersion')||path==='source.fingerprint')return z.string().max(200).nullable();
@@ -71,7 +72,8 @@ export function importRecipe(text:string):{project:Project;notes:string[]} {
  }
  if(raw?.schemaVersion===3){raw={...raw,schemaVersion:4,layout:{photoMode:'continuous',...raw.layout},pieces:raw.pieces??{}};notes.push('Migrated schema 3 to 4. Existing single-photo layouts are preserved.');}
  if(raw?.schemaVersion===4){raw={...raw,schemaVersion:5,edges:{...edgeDefaults,...raw.edges}};notes.push('Migrated schema 4 to 5. New edge controls added; the revised fibre renderer can change older edges.');}
- else if(raw?.schemaVersion!==5)throw new Error('Unsupported settings schema. This application reads schema 1 through 5.');
+ if(raw?.schemaVersion===5){raw={...raw,schemaVersion:6,edges:{...cornerDefaults,...raw.edges},stage:{...stageDefaults,...raw.stage}};notes.push('Migrated schema 5 to 6. Plain backgrounds and existing corner shapes are preserved.');}
+ else if(raw?.schemaVersion!==6)throw new Error('Unsupported settings schema. This application reads schema 1 through 6.');
  const project=validateProject(raw);
  if(project.rendererVersion!==RENDERER_VERSION)notes.push(`Settings use renderer ${project.rendererVersion}; this renderer is ${RENDERER_VERSION}.`);
  project.rendererVersion=RENDERER_VERSION;
@@ -113,4 +115,4 @@ const patches:unknown[]=[quiet,
 ];
 export const presets=patches.map(p=>validateProject(deepMerge(neutral(),p)));
 export function applyPreset(p:Project,index:number,layoutToo:boolean) { const v=clone(presets[index]);v.source=p.source;v.output=p.output;v.pieces=p.pieces;v.layout.photoMode=p.layout.photoMode;v.composition={...v.composition,crop:p.composition.crop};if(!layoutToo){v.layout=p.layout;v.composition=p.composition;v.stage=p.stage;}return v; }
-export function recipeDiagnostics(p:Project,installed:string[]=[]) {const f=filmById(p.film.profile),m=materials.find(m=>m.id===p.paper.profile);return {schemaVersion:5,rendererVersion:RENDERER_VERSION,recipeHash:contentHash(p),film:f?{id:f.id,version:f.version,hash:f.hash,calibration:f.calibrationStatus}:null,material:{id:m?.id,version:m?.version,hash:m?.hash,assetId:p.paper.assetId,provenance:p.paper.assetId&&installed.includes(p.paper.assetId)?'Installed map asset':m?.provenance,fallback:!!p.paper.assetId&&!installed.includes(p.paper.assetId)}};}
+export function recipeDiagnostics(p:Project,installed:string[]=[]) {const f=filmById(p.film.profile),m=materials.find(m=>m.id===p.paper.profile);return {schemaVersion:6,rendererVersion:RENDERER_VERSION,recipeHash:contentHash(p),film:f?{id:f.id,version:f.version,hash:f.hash,calibration:f.calibrationStatus}:null,material:{id:m?.id,version:m?.version,hash:m?.hash,assetId:p.paper.assetId,provenance:p.paper.assetId&&installed.includes(p.paper.assetId)?'Installed map asset':m?.provenance,fallback:!!p.paper.assetId&&!installed.includes(p.paper.assetId)}};}

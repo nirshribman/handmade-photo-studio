@@ -24,3 +24,15 @@ Film manufacturer references and material directions are recorded in `src/model/
 ## Software and UI
 
 React, Vite, TypeScript, Zod, Lucide icons and test/build dependencies retain their respective package licenses in `node_modules/`. Lucide icons are ISC-licensed. Typography uses locally installed system fonts; there are no external font/analytics requests. The lockfile pins installed package versions.
+
+## Album extension - renderer 0.6.0
+
+The album paper/cloth shader, aging and foxing fields, binding crease, folded corner pockets, rounded masks and worn-rim geometry were authored for this project. They contain no downloaded stock textures or artist images. All surfaces remain labelled procedural.
+
+The user supplied these pages for visual reference, inspected on 2026-09-23:
+
+- [Taras Perevarukha - 10x15](https://www.tarasperevarukha.com/projects/10x15?itemId=z981nyjan6qroz5keha2tezr5cr2gw): uneven rounded handmade-print corners and restrained edge wear.
+- [Alamy - aged photo album page](https://www.alamy.com/stock-photo-aged-book-photo-album-vintage-paper-card-photo-corner-isolated-on-73493487.html): aged cream album support and folded mounting corners.
+- [Vecteezy - old photo album references](https://www.vecteezy.com/free-photos/old-photo-album): album page colours, cloth/paper character and mounting arrangements.
+
+No license to redistribute those reference photographs is inferred. None is used as an application asset, texture map or shipped fixture. Generated album examples in artifacts/albums are local review outputs and excluded from Git.

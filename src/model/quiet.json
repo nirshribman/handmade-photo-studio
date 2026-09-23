@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 5,
-  "rendererVersion": "0.5.0",
+  "schemaVersion": 6,
+  "rendererVersion": "0.6.0",
   "source": {
     "id": "source-1",
     "displayName": "example-landscape.jpg",
@@ -26,7 +26,17 @@
   "stage": {
     "paddingPct": 8,
     "background": "solid",
-    "colour": "#F3F0E9"
+    "colour": "#F3F0E9",
+    "material": "plain",
+    "texture": 55,
+    "aging": 0,
+    "stains": 0,
+    "edgeShade": 0,
+    "binding": 0,
+    "textureScale": 1,
+    "seed": 1201,
+    "mounts": "none",
+    "mountSize": 6
   },
   "output": {
     "view": "object"
@@ -148,7 +158,11 @@
     "exposedPaper": 0,
     "fibreLength": 25,
     "longFibres": 0,
-    "fibreClumping": 45
+    "fibreClumping": 45,
+    "cornerRadius": 0,
+    "cornerVariation": 35,
+    "cornerScope": "sheet",
+    "rimWear": 0
   },
   "wrinkles": {
     "enabled": false,

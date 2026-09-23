@@ -79,7 +79,7 @@ test('reference crumple and remove-softening controls are visible, undoable and 
   await page.getByRole('button',{name:'Project options'}).click();
   const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download settings',exact:true}).click();
   const file=await (await pending).path(),recipe=JSON.parse(await fs.readFile(file!,'utf8'));
-  expect(recipe.schemaVersion).toBe(5);expect(recipe.tone.detailSoftness).toBe(0);expect(recipe.ink.spread).toBe(0);expect(recipe.wrinkles.style).toBe('crumpled');
+  expect(recipe.schemaVersion).toBe(6);expect(recipe.tone.detailSoftness).toBe(0);expect(recipe.ink.spread).toBe(0);expect(recipe.wrinkles.style).toBe('crumpled');
   expect(recipe.tone).not.toHaveProperty('sharpness');
   const legacy={...recipe,schemaVersion:2,rendererVersion:'0.2.0'};delete legacy.wrinkles.style;delete legacy.wrinkles.definition;
   await page.getByLabel('Choose settings file').setInputFiles({name:'legacy.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(legacy))});

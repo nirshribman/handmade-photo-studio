@@ -1,9 +1,10 @@
 ﻿import type {Project} from '../model/project';
+import {roundCorners} from './rounded-corners';
 import {EDGE_MARGIN} from '../model/edge-styles';
 import {pieceEdit} from '../model/pieces';
 import {hash,noise} from '../imaging/random';
 export interface PaperBoundary {kind:'outer'|'inner';points:[number,number][];}
-export interface Piece {id:string;x:number;y:number;width:number;height:number;dx:number;dy:number;angle:number;points:[number,number][];boundaries:PaperBoundary[];tone:number;tint:number;}
+export interface Piece {id:string;x:number;y:number;width:number;height:number;dx:number;dy:number;angle:number;points:[number,number][];boundaries:PaperBoundary[];cornerRadii:number[];tone:number;tint:number;}
 export interface Geometry {width:number;height:number;stageWidth:number;stageHeight:number;pieces:Piece[];margin:number;originX:number;originY:number;}
 export const effective=(p:Project,g:'tone'|'film'|'bw'|'grain'|'paper'|'ink'|'edges'|'wrinkles'|'lighting')=>p[g].enabled?p.finishStrength*p[g].strength/10000:0;
 export function cropAspect(p:Project,sw:number,sh:number){return sw*p.composition.crop.width/(sh*p.composition.crop.height);}
@@ -20,7 +21,8 @@ export function buildGeometry(p:Project,sw:number,sh:number):Geometry {
  for(let r=0;r<ys.length-1;r++)for(let c=0;c<xs.length-1;c++){
   const scatter=p.layout.scatter/100;
   const boundaries:PaperBoundary[]=[{kind:r===0?'outer':'inner',points:boundary(c,r,true)},{kind:c===xs.length-2?'outer':'inner',points:boundary(c+1,r,false)},{kind:r===ys.length-2?'outer':'inner',points:boundary(c,r+1,true,true)},{kind:c===0?'outer':'inner',points:boundary(c,r,false,true)}];
-  pieces.push({id:`${r}:${c}`,x:xs[c],y:ys[r],width:xs[c+1]-xs[c],height:ys[r+1]-ys[r],dx:c*gap+scatter*(hash(c,r,p.layout.seed+701)-.5)*18,dy:r*gap+scatter*(hash(c,r,p.layout.seed+709)-.5)*18,angle:scatter*(hash(c,r,p.layout.seed+719)-.5)*.065,boundaries,points:boundaries.flatMap(b=>b.points),tone:hash(c,r,p.layout.seed+907)-.5,tint:hash(c,r,p.layout.seed+911)-.5});
+  const rounded=roundCorners(boundaries,p,xs[c+1]-xs[c],ys[r+1]-ys[r]);
+  pieces.push({id:`${r}:${c}`,x:xs[c],y:ys[r],width:xs[c+1]-xs[c],height:ys[r+1]-ys[r],dx:c*gap+scatter*(hash(c,r,p.layout.seed+701)-.5)*18,dy:r*gap+scatter*(hash(c,r,p.layout.seed+709)-.5)*18,angle:scatter*(hash(c,r,p.layout.seed+719)-.5)*.065,boundaries:rounded.boundaries,cornerRadii:rounded.radii,points:rounded.boundaries.flatMap(b=>b.points),tone:hash(c,r,p.layout.seed+907)-.5,tint:hash(c,r,p.layout.seed+911)-.5});
  }
  const sum=pieces.reduce((a,x)=>a+x.width*x.height,0);const mt=pieces.reduce((a,x)=>a+x.tone*x.width*x.height,0)/sum,mw=pieces.reduce((a,x)=>a+x.tint*x.width*x.height,0)/sum;pieces.forEach(v=>{v.tone-=mt;v.tint-=mw;});
  // Fixed envelope for maximum supported edge, scatter, thickness and shadow support.

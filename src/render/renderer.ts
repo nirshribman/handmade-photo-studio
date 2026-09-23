@@ -4,7 +4,10 @@ import type {PieceEdit} from '../model/pieces';
 import {filmById,materials} from '../model/profiles';
 import {buildGeometry,imagePlacement,pieceImagePlacement,effective,cropAspect} from '../layout/geometry';
 import {EDGE_PAD} from '../model/edge-styles';
-import {exposedEdge,edgeFibres} from './paper-edges';
+import {albumShader} from './album-shader';
+import {backgroundStyles} from '../model/backgrounds';
+import {drawMounts} from './album-mounts';
+import {exposedEdge,edgeFibres,wornRim} from './paper-edges';
 import {vertex,photoShader,materialShader,highlightShader,blurShader} from './shaders';
 import {surface,context2d,encodeCanvas} from './surface';
 import type {Surface} from './surface';
@@ -22,6 +25,7 @@ export class Renderer {
  private targets=new Map<string,Target>();private sourceTexture:WebGLTexture|null=null;private sourceWidth=0;private sourceHeight=0;private photoKey='';private glowKey='';
  private pieceSources=new Map<string,{texture:WebGLTexture;width:number;height:number}>();private sourceGeneration=0;private atlasKey='';
  private materialMaps:WebGLTexture[]=[];private asset:MaterialAsset['manifest']|null=null;
+ private album:Surface=surface(1,1);private albumKey='';
  private output:Surface=surface(1,1);private face:Surface=surface(1,1);private piece:Surface=surface(1,1);
  constructor(){
   this.canvas=surface(1,1);const gl=this.canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,preserveDrawingBuffer:true,antialias:false,depth:false,stencil:false}) as WebGL2RenderingContext|null;
@@ -29,7 +33,7 @@ export class Renderer {
   const debug=gl.getExtension('WEBGL_debug_renderer_info');const mobile=typeof navigator!=='undefined'&&/Android|iPhone|iPad/i.test(navigator.userAgent);
   this.capability={webgl2:true,maxTexture:gl.getParameter(gl.MAX_TEXTURE_SIZE),maxRenderbuffer:gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),maxViewport:Array.from(gl.getParameter(gl.MAX_VIEWPORT_DIMS)),maxPixels:mobile?4000000:12000000,maxSide:4096,gpu:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),adapter:'WebGL2'};
   this.capability.maxSide=Math.min(4096,this.capability.maxTexture,this.capability.maxRenderbuffer,...this.capability.maxViewport);
-  for(const [name,frag] of Object.entries({photo:photoShader,material:materialShader,highlight:highlightShader,blur:blurShader}))this.programs[name]=this.compile(frag);
+  for(const [name,frag] of Object.entries({photo:photoShader,material:materialShader,highlight:highlightShader,blur:blurShader,album:albumShader}))this.programs[name]=this.compile(frag);
   this.canvas.addEventListener('webglcontextlost',((e:Event)=>{e.preventDefault();this.photoKey='';this.glowKey='';}) as EventListener);
  }
  private compile(fragment:string){const gl=this.gl;const shaders=[gl.VERTEX_SHADER,gl.FRAGMENT_SHADER].map((type,i)=>{const sh=gl.createShader(type)!;gl.shaderSource(sh,i?fragment:vertex);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)){const error=gl.getShaderInfoLog(sh);gl.deleteShader(sh);throw new Error(`Renderer shader could not compile: ${error}`);}return sh;});const p=gl.createProgram()!;shaders.forEach(s=>gl.attachShader(p,s));gl.linkProgram(p);shaders.forEach(s=>gl.deleteShader(s));if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p)||'Renderer link failed.');return p;}
@@ -96,7 +100,14 @@ export class Renderer {
    }
   }else{const result=this.photograph(p,pw,ph,mainSource,'main:'+this.sourceGeneration);photoTarget=result.target;photoCached=result.cached;}
   const photoEnd=performance.now();this.output.width=o.width;this.output.height=o.height;const out=context2d(this.output);out.clearRect(0,0,o.width,o.height);
-  if(o.includeBackground){out.fillStyle=o.flattenColour??p.stage.colour;out.fillRect(0,0,o.width,o.height);}
+  const albumVisible=o.includeBackground&&!imageView&&p.stage.background==='solid';
+  if(o.includeBackground){
+   if(albumVisible&&p.stage.material!=='plain'){
+    const key=JSON.stringify([p.stage,o.width,o.height,o.flattenColour,geo.stageWidth,geo.stageHeight]);
+    if(key!==this.albumKey){this.canvas.width=o.width;this.canvas.height=o.height;const program=this.pass('album',null,o.width,o.height);this.uniform(program,'stageSize',[o.width/scale,o.height/scale]);this.uniform(program,'baseColour',rgb(o.flattenColour??p.stage.colour));this.uniform(program,'paperSettings',[p.stage.texture/100,p.stage.aging/100,p.stage.stains/100,p.stage.edgeShade/100]);this.uniform(program,'pageSettings',[p.stage.binding/100,0,p.stage.textureScale]);this.uniform(program,'material',backgroundStyles.findIndex(s=>s.id===p.stage.material),true);gl.uniform1ui(gl.getUniformLocation(program,'albumSeed'),p.stage.seed);this.draw();this.copyGL(this.album);this.albumKey=key;}
+    out.drawImage(this.album,0,0);
+   }else{out.fillStyle=o.flattenColour??p.stage.colour;out.fillRect(0,0,o.width,o.height);}
+  }
   if(imageView){
    // Copy the premultiplied photographic target without running paper or layout.
    this.canvas.width=pw;this.canvas.height=ph;gl.bindFramebuffer(gl.READ_FRAMEBUFFER,photoTarget.framebuffer);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,null);gl.blitFramebuffer(0,0,pw,ph,0,0,pw,ph,gl.COLOR_BUFFER_BIT,gl.NEAREST);this.copyGL(this.face);out.drawImage(this.face,0,0,o.width,o.height);
@@ -114,25 +125,25 @@ export class Renderer {
    const ls=o.view==='object'?effective(p,'lighting'):0;const angle=p.lighting.azimuthDeg*Math.PI/180,alt=p.lighting.altitudeDeg*Math.PI/180;
    const lift=p.lighting.elevation/100*15,shadowOffset=(1+lift)/Math.tan(alt),shadowBlur=(1.2+lift*.35)*(0.3+p.lighting.softness/100*1.3);
    const thickness=p.paper.thicknessMm/p.composition.shortSideMm*1000*effective(p,'paper')*ls;
-   const drawPieces=!individual&&!Object.values(p.pieces).some(e=>e.rotationDeg||e.offsetX||e.offsetY)&&p.layout.gapPct===0&&p.layout.scatter===0&&(p.layout.tearAmount===0||p.finishStrength===0)?buildGeometry({...p,layout:{...p.layout,mode:'single'}},this.sourceWidth,this.sourceHeight).pieces:geo.pieces;
+   const drawPieces=!(albumVisible&&p.stage.mounts!=='none')&&p.edges.cornerRadius*effective(p,'edges')===0&&!individual&&!Object.values(p.pieces).some(e=>e.rotationDeg||e.offsetX||e.offsetY)&&p.layout.gapPct===0&&p.layout.scatter===0&&(p.layout.tearAmount===0||p.finishStrength===0)?buildGeometry({...p,layout:{...p.layout,mode:'single'}},this.sourceWidth,this.sourceHeight).pieces:geo.pieces;
    for(const piece of drawPieces){
     const pad=EDGE_PAD;this.piece.width=Math.ceil((piece.width+pad*2)*scale);this.piece.height=Math.ceil((piece.height+pad*2)*scale);const ctx=context2d(this.piece);ctx.clearRect(0,0,this.piece.width,this.piece.height);
     ctx.setTransform(scale,0,0,scale,(pad-piece.x)*scale,(pad-piece.y)*scale);const path=new Path2D();piece.points.forEach(([x,y],i)=>i?path.lineTo(x,y):path.moveTo(x,y));path.closePath();ctx.save();ctx.clip(path);ctx.drawImage(this.face,-faceMargin,-faceMargin,geo.width+2*faceMargin,geo.height+2*faceMargin);
-    exposedEdge(ctx,p,piece);ctx.restore();
+    exposedEdge(ctx,p,piece);wornRim(ctx,p,piece,o.view);ctx.restore();
     edgeFibres(ctx,p,piece,this.face,geo,faceMargin);
     out.save();const cx=offsetX+(piece.x+piece.dx+piece.width/2)*scale,cy=offsetY+(piece.y+piece.dy+piece.height/2)*scale;out.translate(cx,cy);out.rotate(piece.angle);
     const x=-(piece.width/2+pad)*scale,y=-(piece.height/2+pad)*scale;
     if(ls>0&&o.includeShadow&&p.lighting.shadowOpacity>0){out.shadowColor=`rgba(31,25,17,${ls*p.lighting.shadowOpacity/100})`;out.shadowBlur=shadowBlur*scale;out.shadowOffsetX=-Math.cos(angle)*shadowOffset*scale;out.shadowOffsetY=-Math.sin(angle)*shadowOffset*scale;out.drawImage(this.piece,x,y);out.shadowColor='transparent';}
     if(thickness>.01){out.globalAlpha=.4*ls;out.drawImage(this.piece,x-Math.cos(angle)*thickness*scale,y-Math.sin(angle)*thickness*scale);out.globalAlpha=1;}
-    out.drawImage(this.piece,x,y);out.restore();
+    out.drawImage(this.piece,x,y);if(albumVisible&&p.stage.mounts!=='none'){out.save();out.scale(scale,scale);drawMounts(out,p,piece,o.view==='object'&&o.includeShadow);out.restore();}out.restore();
    }
   }
   if(gl.getError()!==gl.NO_ERROR)throw new Error('The GPU could not complete this render. Reduce output dimensions.');
   const end=performance.now(),mapPixels=this.asset?this.asset.width*this.asset.height:0;
-  const estimatedBytes=((this.sourceWidth*this.sourceHeight+Array.from(this.pieceSources.values()).reduce((n,s)=>n+s.width*s.height,0))*3.34+(individual?geo.width*geo.height*scale*scale:0)+pw*ph+fw*fh*2+o.width*o.height*2+this.piece.width*this.piece.height+512*512*3+mapPixels*(3*1.34+Object.keys(this.asset?.maps??{}).length))*4;
+  const estimatedBytes=((this.sourceWidth*this.sourceHeight+Array.from(this.pieceSources.values()).reduce((n,s)=>n+s.width*s.height,0))*3.34+(individual?geo.width*geo.height*scale*scale:0)+pw*ph+fw*fh*2+o.width*o.height*2+this.album.width*this.album.height+this.piece.width*this.piece.height+512*512*3+mapPixels*(3*1.34+Object.keys(this.asset?.maps??{}).length))*4;
   return {canvas:this.output,metrics:{ms:end-start,photoMs:photoEnd-start,materialMs:materialEnd-photoEnd,sceneMs:end-materialEnd,estimatedBytes,photoCached,warnings}};
  }
  async encode(p:Project,o:RenderOptions,type:string,quality:number){const result=this.render(p,o);const start=performance.now(),blob=await encodeCanvas(result.canvas,type,quality);return {blob,metrics:{...result.metrics,encodeMs:performance.now()-start}};}
- dispose(){const gl=this.gl;this.pieceSources.forEach(s=>gl.deleteTexture(s.texture));this.pieceSources.clear();this.targets.forEach(t=>{gl.deleteTexture(t.texture);gl.deleteFramebuffer(t.framebuffer);});this.targets.clear();Object.values(this.programs).forEach(p=>gl.deleteProgram(p));this.materialMaps.forEach(t=>gl.deleteTexture(t));if(this.sourceTexture)gl.deleteTexture(this.sourceTexture);this.canvas.width=1;this.canvas.height=1;this.output.width=1;this.face.width=1;this.piece.width=1;gl.getExtension('WEBGL_lose_context')?.loseContext();}
+ dispose(){const gl=this.gl;this.pieceSources.forEach(s=>gl.deleteTexture(s.texture));this.pieceSources.clear();this.targets.forEach(t=>{gl.deleteTexture(t.texture);gl.deleteFramebuffer(t.framebuffer);});this.targets.clear();Object.values(this.programs).forEach(p=>gl.deleteProgram(p));this.materialMaps.forEach(t=>gl.deleteTexture(t));if(this.sourceTexture)gl.deleteTexture(this.sourceTexture);this.canvas.width=1;this.canvas.height=1;this.output.width=1;this.album.width=1;this.face.width=1;this.piece.width=1;gl.getExtension('WEBGL_lose_context')?.loseContext();}
 }
 

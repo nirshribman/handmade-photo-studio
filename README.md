@@ -40,7 +40,7 @@ Open **Wrinkles → Use reference crumple** for irregular crumpled kōzo with ra
 
 **Basic tone → Image softness** controls photographic detail loss. **Ink & print → Ink softness** controls additional spreading of the printed image. Set both to **0**, or click **Basic tone → Remove softening**, to disable deliberate softening in one undoable action. There is no added sharpening. Other tone, grain, paper and wrinkle settings stay as they are. Judge detail at **100%** after the status says **Refined preview**; zoom above 100% enlarges the preview pixels.
 
-Actual dark-paper, light-paper and user-photo exports are in **`artifacts/crumple/`** with matching settings and a local `index.html` gallery. The original synthetic dark source is `tests/fixtures/dark-paper.png`; the photo example uses `Sample/DSC_5377.jpg`. Settings created by renderer 0.5.0 use schema 5. Schema 1 through 4 settings and saved local projects migrate with a visible note; the revised crease generator changes the appearance of older wrinkles.
+Actual dark-paper, light-paper and user-photo exports are in **`artifacts/crumple/`** with matching settings and a local `index.html` gallery. The original synthetic dark source is `tests/fixtures/dark-paper.png`; the photo example uses `Sample/DSC_5377.jpg`. Settings created by renderer 0.6.0 use schema 6. Schema 1 through 5 settings and saved local projects migrate with a visible note; the revised crease generator changes the appearance of older wrinkles.
 
 ## Torn edges and visible fibres
 
@@ -55,6 +55,19 @@ Open **Paper edges** and choose **Soft deckle**, **Raw cotton**, or **Pulled fib
 Use Object or Flat print and **Zoom area** to inspect an edge, or **100%** after Refined preview. These edge controls do not blur or sharpen the photograph. A fixed safety margin accommodates long fibres without rescaling the artwork when controls change. The margin is slightly larger in renderer 0.5.0. Schemas 1-4 migrate, with a visible notice that the revised edge rendering can change earlier output.
 
 Actual exports, settings, transparency comparisons and UI screenshots are in **artifacts/edges/**. Open **http://127.0.0.1:5173/artifacts/edges/index.html** for comparisons. Run `node scripts/edge-gallery.mjs` after the browser tests to rebuild that local gallery. These are procedural interpretations of the supplied torn-paper references; the original photos and reference files remain untouched.
+
+## Album backgrounds and rounded corners
+
+Open **Album background** in the left panel. Choose **Ivory album paper**, **Aged album page**, **Kraft scrapbook**, **Black album paper**, or **Linen album cloth**. Each is an original procedural surface. **Plain colour** restores a solid background. Choosing a material is one undo step and preserves the photograph, its finish, crop and arrangement.
+
+- Adjust **Background texture**, **Paper age**, **Foxing and stains**, **Page edge aging** and **Binding crease** independently. **Background details** offers texture scale and a new seeded pattern.
+- Use **Background colour** to tint the material and **Surrounding space** to expose more album paper.
+- **Photo corner mounts** adds black, ivory or kraft paper pockets. Their size is adjustable; each set follows its photo piece and rotation.
+- Open **Paper edges** and choose **Rounded washi** for uneven rounded corners, a restrained fibrous edge and a worn rim. Adjust **Corner rounding**, **Worn rim**, and **Fine adjustments -> Uneven corners**. **Round corners on** chooses the outside sheet corners or every separate piece.
+
+The background is part of the arrangement and remains visible at Finish strength zero. Paper corner rounding and wear follow edge strength and Finish strength. Neither changes photographic sharpness. Use Object or Flat print to see the album; Image only omits it. Transparent PNG surroundings omit both album paper and corner mounts. Opaque PNG/JPEG includes the album when Background is set to Include background; **Flatten onto** tints it. With Background set to Transparent, an opaque export uses the selected solid flatten colour.
+
+The local **[album comparison gallery](http://127.0.0.1:5173/artifacts/albums/index.html)** contains actual exports and reusable settings. Run `node scripts/album-gallery.mjs` after the browser tests to rebuild it. The Taras Perevarukha, Alamy and Vecteezy links supplied in the conversation informed the material direction; their photographs and stock textures are not bundled. These are procedural interpretations, not measured scans or exact reproductions.
 
 ## Different photos in one frame
 
@@ -99,7 +112,7 @@ A manifest declares ID/version, author/source, permission, captured/procedural/h
 
 Input: 20 MB encoded, 24 MP decoded, maximum 12,000 pixels per side, JPEG/PNG/static WebP only. Signatures and dimensions are read before decode; animated PNG/WebP and corrupt files are rejected without replacing the current photo. GPU texture limits can further constrain input.
 
-Output: 4,096 pixels per side and 12 MP on desktop, reduced to 4 MP on mobile, additionally bounded by queried GPU limits. Exact unsupported sizes fail visibly; no silent resizing. Memory estimates include source copies, mipmapped texture, photographic/highlight targets, paper/stage/piece surfaces and material maps, but are estimates rather than total driver/browser memory measurements. Extreme aspect ratios may not fit minimum export dimensions at this ceiling. Settings JSON: 256 KB; unknown keys/newer schemas rejected. Schema 1 preserves its monochrome strength during migration; older schemas migrate to schema 5 with a visible note.
+Output: 4,096 pixels per side and 12 MP on desktop, reduced to 4 MP on mobile, additionally bounded by queried GPU limits. Exact unsupported sizes fail visibly; no silent resizing. Memory estimates include source copies, mipmapped texture, photographic/highlight targets, paper/stage/piece surfaces and material maps, but are estimates rather than total driver/browser memory measurements. Extreme aspect ratios may not fit minimum export dimensions at this ceiling. Settings JSON: 256 KB; unknown keys/newer schemas rejected. Schema 1 preserves its monochrome strength during migration; older schemas migrate to schema 6 with a visible note.
 
 ## Verification
 
